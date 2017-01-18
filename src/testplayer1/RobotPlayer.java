@@ -300,6 +300,11 @@ public strictfp class RobotPlayer {
     	final int RADIUS_TO_ARCHON = 20;
     	
     	Direction towards;
+
+
+    	MapLocation[] broadcastingRobots = rc.senseBroadcastingRobotLocations();
+    	MapLocation target = myLocation;
+    	boolean canMoveTo = true;
     	
     	// The code you want your robot to perform every round should be in this loop
         while (true) {
@@ -314,27 +319,58 @@ public strictfp class RobotPlayer {
             	
             	//makes sure Gardener movement is within RADIUS of main archon
             	if (!rc.hasMoved()){
-            		if (!myLocation.isWithinDistance(archonLocation, RADIUS_TO_ARCHON)){
-            			movingDir = myLocation.directionTo(archonLocation);
-            			if (rc.canMove(movingDir)){
-            				rc.move(movingDir);
-            			}
-            			else{
-            				movingDir = randomDirection();
-            				if (rc.canMove(movingDir)){
-            					rc.move(movingDir);
-            				}
-            			}
-            		}else{
-            			movingDir = randomDirection();
-            			if (archonLocation.distanceTo(myLocation.add(movingDir, rc.getType().strideRadius)) > RADIUS_TO_ARCHON){
-            				
-            			}
-            			else{
-            				if (rc.canMove(movingDir)){
-            					rc.move(movingDir);
-            				}
-            			}
+            		if (rc.getRoundNum() < 2000){
+	            		if (!myLocation.isWithinDistance(archonLocation, RADIUS_TO_ARCHON)){
+	            			movingDir = myLocation.directionTo(archonLocation);
+	            			if (rc.canMove(movingDir)){
+	            				rc.move(movingDir);
+	            			}
+	            			else{
+	            				movingDir = randomDirection();
+	            				if (rc.canMove(movingDir)){
+	            					rc.move(movingDir);
+	            				}
+	            			}
+	            		}else{
+	            			movingDir = randomDirection();
+	            			if (archonLocation.distanceTo(myLocation.add(movingDir, rc.getType().strideRadius)) > RADIUS_TO_ARCHON){
+	            				
+	            			}
+	            			else{
+	            				if (rc.canMove(movingDir)){
+	            					rc.move(movingDir);
+	            				}
+	            			}
+	            		}
+            		}
+            		else{
+            			
+            			if (myLocation.isWithinDistance(target, 2) || canMoveTo == false){
+                    		broadcastingRobots = rc.senseBroadcastingRobotLocations();
+                    		for (MapLocation m : broadcastingRobots){
+        	            		try {
+        							if(rc.senseRobotAtLocation(m).getTeam() != rc.getTeam()){
+        								System.out.println("set target");
+        								target = m;
+        								canMoveTo = true;
+        								if ( tryMove(myLocation.directionTo(m)) ){
+        									break;
+        								}
+        							}
+        						} catch (GameActionException e) {
+        							wander();
+        							System.out.println("wandering");
+        						}
+        	            	}
+                    	}
+                    	else{
+                    		if(!tryMove(myLocation.directionTo(target)) ){
+                    			wander();
+                    			canMoveTo = false;
+                    		}
+                    		System.out.println("moving to target");
+                    	}
+                		
             		}
             	}
             	
