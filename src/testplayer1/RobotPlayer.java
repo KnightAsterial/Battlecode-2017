@@ -20,7 +20,7 @@ public strictfp class RobotPlayer {
     //important numbers
 							//per archon...
     
-    
+    //TODO: make no man zone bubble around archon
     
 
     /**
