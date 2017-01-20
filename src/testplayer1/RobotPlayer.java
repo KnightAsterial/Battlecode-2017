@@ -304,7 +304,6 @@ public strictfp class RobotPlayer {
 
     	MapLocation[] broadcastingRobots = rc.senseBroadcastingRobotLocations();
     	MapLocation target = myLocation;
-    	boolean canMoveTo = true;
     	
     	// The code you want your robot to perform every round should be in this loop
         while (true) {
@@ -345,29 +344,34 @@ public strictfp class RobotPlayer {
             		}
             		else{
             			
-            			if (myLocation.isWithinDistance(target, 2) || canMoveTo == false){
+            			if (myLocation.isWithinDistance(target, 1)){
                     		broadcastingRobots = rc.senseBroadcastingRobotLocations();
-                    		for (MapLocation m : broadcastingRobots){
-        	            		try {
-        							if(rc.senseRobotAtLocation(m).getTeam() != rc.getTeam()){
-        								System.out.println("set target");
-        								target = m;
-        								canMoveTo = true;
-        								if ( tryMove(myLocation.directionTo(m)) ){
-        									break;
-        								}
-        							}
-        						} catch (GameActionException e) {
-        							wander();
-        							System.out.println("wandering");
-        						}
-        	            	}
+	                    	if (broadcastingRobots.length != 0){
+                    			for (MapLocation m : broadcastingRobots){
+	        	            		try {
+	        							if(rc.senseRobotAtLocation(m).getTeam() != rc.getTeam()){
+	        								System.out.println("set target");
+	        								target = m;
+	        								if ( tryMove(myLocation.directionTo(m)) ){
+	        									break;
+	        								}
+	        							}
+	        						} catch (GameActionException e) {
+	        							target = m;
+	        							System.out.println("out of sensor range");
+	        							if ( tryMove(myLocation.directionTo(m)) ){
+	        								wander();
+	        								break;
+	        							}
+	        						}
+	        	            	}
+	                    	}
+	                    	else{
+	                    		wander();
+	                    	}
                     	}
                     	else{
-                    		if(!tryMove(myLocation.directionTo(target)) ){
-                    			wander();
-                    			canMoveTo = false;
-                    		}
+                    		tryMove(myLocation.directionTo(target));
                     		System.out.println("moving to target");
                     	}
                 		
