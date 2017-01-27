@@ -4,6 +4,53 @@ import battlecode.common.*;
 
 public strictfp class RobotPlayer {
     static RobotController rc;
+    
+    /*
+     * BROADCAST ARRAY KEY
+     * 
+     * 999 - is there a target (0=no, 1=yes)
+     * 1000 - integer part of X-coordinate of target enemy
+     * 1001 - decimal part of X-coordinate of target enemy
+     * 1002 - integer part of Y-coordinate of target enemy
+     * 1003 - decimal part of Y-coordinate of target enemy
+     * 1004 - priority of enemy targeted (1 = Archon, 2 = Gardener, 3 = Soldier, 4 = ...   , 1048575 = No Robot Targeted)
+     * 1005 - turn number that robot was spotted
+     * 1006 - bool: was robot spotted this round (0=no, 1=yes)
+     */
+    
+    static int IS_TARGET_CHANNEL = 999;
+    
+    /**
+     * integer part of x
+     */
+    static int TARGET_X_INT_CHANNEL = 1000;
+    
+    /**
+     * decimal part of x * 10^6 and rounded
+     */
+    static int TARGET_X_DECI_CHANNEL = 1001;
+    
+    /**
+     * integer part of y
+     */
+    static int TARGET_Y_INT_CHANNEL = 1002;
+    
+    /**
+     * decimal part of y * 10^6 and rounded
+     */
+    static int TARGET_Y_DECI_CHANNEL = 1003;
+    static int TARGET_PRIORITY_CHANNEL = 1004;
+    static int TARGET_TURN_NUMBER_CHANNEL = 1005;
+    static int WAS_ROBOT_SPOTTED_CHANNEL = 1006;
+    
+    //Priority options
+    static int ARCHON_PRIORITY = 1;
+    static int GARDENER_PRIORITY = 2;
+    static int SOLDIER_PRIORITY = 3;
+    static int MISC_PRIORITY = 20;
+    static int NO_ROBOT_TARGETED_PRIORITY = 1048575;
+    
+    
 
     /**
      * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -50,12 +97,38 @@ public strictfp class RobotPlayer {
     	boolean offMapSouth = false;
     	MapLocation toMoveLocation;
     	int moveAwayCounter = 0;
+    	MapLocation averagedRunLocation;
+    	
+    	rc.broadcast(IS_TARGET_CHANNEL, 0);
+    	rc.broadcast(TARGET_X_INT_CHANNEL, -1);
+    	rc.broadcast(TARGET_X_DECI_CHANNEL, -1);
+    	rc.broadcast(TARGET_Y_INT_CHANNEL, -1);
+    	rc.broadcast(TARGET_Y_DECI_CHANNEL, -1);
+    	rc.broadcast(TARGET_PRIORITY_CHANNEL, NO_ROBOT_TARGETED_PRIORITY);
+    	rc.broadcast(TARGET_TURN_NUMBER_CHANNEL, -1000);
+    	rc.broadcast(WAS_ROBOT_SPOTTED_CHANNEL, 0);
+    	
     	
         // The code you want your robot to perform every round should be in this loop
         while (true) {
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
+            	
+            	MapLocation target = readTargetMapLocation();
+            	rc.setIndicatorDot(target, 255, 0, 0);
+
+            	
+            	//if no robot was found the previous turn, reset targeting
+            	if (rc.getRoundNum() > rc.readBroadcast(TARGET_TURN_NUMBER_CHANNEL)+10 && rc.readBroadcast(WAS_ROBOT_SPOTTED_CHANNEL) == 0){
+            		rc.broadcast(IS_TARGET_CHANNEL, 0);
+            		rc.broadcast(TARGET_X_INT_CHANNEL, -1);
+                	rc.broadcast(TARGET_X_DECI_CHANNEL, -1);
+                	rc.broadcast(TARGET_Y_INT_CHANNEL, -1);
+                	rc.broadcast(TARGET_Y_DECI_CHANNEL, -1);
+                	rc.broadcast(TARGET_PRIORITY_CHANNEL, NO_ROBOT_TARGETED_PRIORITY);
+                	System.out.println("NO ROBOT SPOTTED THIS TURN, RESETTING");
+            	}
             	
             	toSpawnGardnerLoc = rc.getLocation().add(Direction.getWest(), 3);
             	rc.setIndicatorDot(toSpawnGardnerLoc, 255, 255, 255);
@@ -119,22 +192,41 @@ public strictfp class RobotPlayer {
             			toMoveLocation = toMoveLocation.add(Direction.getNorth());
             		}
             		if (rc.getLocation().directionTo(toMoveLocation) != null){
-            			tryMove(rc.getLocation().directionTo(toMoveLocation));
+            			if (!rc.hasMoved()){
+            				tryMove(rc.getLocation().directionTo(toMoveLocation));
+            			}
+            			
             		}else{
-            			wander();
+            			if (!rc.hasMoved()){
+            				wander();
+            			}
             		}
             	}
             	else{
-            		wander();
+            		if (!rc.hasMoved()){
+            			//runaway block
+                    	averagedRunLocation = rc.getLocation();
+                    	RobotInfo[] nearbyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+                    	for (RobotInfo r : nearbyRobots){
+                    		averagedRunLocation = averagedRunLocation.subtract(rc.getLocation().directionTo(r.getLocation()));
+                    	}
+                    	rc.setIndicatorDot(averagedRunLocation, 0, 0, 255);
+                    	if (!averagedRunLocation.equals(rc.getLocation())){				//if there was any modification to run location
+                    		tryMove(rc.getLocation().directionTo(averagedRunLocation));
+                    	}else{
+                    		wander();
+                    	}
+        			}
             	}
 
-            	
-            	
-            	
+   
             	
             	if (rc.getTeamBullets() > 10000){
             		rc.donate(10000);
             	}
+            
+            	
+            	rc.broadcast(WAS_ROBOT_SPOTTED_CHANNEL, 0);			//resets counter for "was robot spotted this turn"
                 Clock.yield();
 
             } catch (Exception e) {
@@ -152,6 +244,8 @@ public strictfp class RobotPlayer {
     	 * 4 - 300 degree
     	 */
     	int directionToPlant = 0;
+    	
+    	int buildcounter = 0;
 
         // The code you want your robot to perform every round should be in this loop
         while (true) {
@@ -159,12 +253,30 @@ public strictfp class RobotPlayer {
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
             	
-            	if(rc.getRoundNum() < 3000){
+            	if(rc.getRoundNum() < 300 && rc.getRoundNum() > 100){
             		
             		if (  rc.canBuildRobot(RobotType.LUMBERJACK, Direction.getEast())  ){
             			rc.buildRobot(RobotType.LUMBERJACK, Direction.getEast());
             		}
             		
+            	}
+            	else if (rc.getRoundNum() < 500){
+            		if (  rc.canBuildRobot(RobotType.SCOUT, Direction.getEast())  ){
+            			rc.buildRobot(RobotType.SCOUT, Direction.getEast());
+            		}
+            	}
+            	else{
+            		if (buildcounter % 3 == 0){
+            			if (  rc.canBuildRobot(RobotType.SCOUT, Direction.getEast())  ){
+                			rc.buildRobot(RobotType.SCOUT, Direction.getEast());
+                			buildcounter++;
+                		}
+            		}else{
+            			if (  rc.canBuildRobot(RobotType.SOLDIER, Direction.getEast())  ){
+                			rc.buildRobot(RobotType.SOLDIER, Direction.getEast());
+                			buildcounter++;
+                		}
+            		}
             	}
 
             	//attempts to water nearby tree
@@ -196,15 +308,75 @@ public strictfp class RobotPlayer {
         }
     }
 
-    static void runSoldier() throws GameActionException {
+    static void runSoldier() throws GameActionException {												//copy paste of scout strat
 
+    	Direction randomDir = randomDirection();
+    	int targetpriority;
+    	MapLocation averagedRunLocation;
 
+    	
         // The code you want your robot to perform every round should be in this loop
         while (true) {
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
+            	
 
+            	
+            	
+            	RobotInfo[] nearbyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+            	
+            	//scouting bot
+            	for (RobotInfo r : nearbyRobots){
+            		if (r.getType() == RobotType.ARCHON){
+            			targetpriority = ARCHON_PRIORITY;
+            		}
+            		else if (r.getType() == RobotType.GARDENER){
+            			targetpriority = GARDENER_PRIORITY;
+            		}
+            		else if (r.getType() == RobotType.SOLDIER){
+            			targetpriority = SOLDIER_PRIORITY;
+            		}
+            		else{
+            			targetpriority = MISC_PRIORITY;
+            		}
+            		
+            		if (targetpriority < rc.readBroadcast(TARGET_PRIORITY_CHANNEL)){
+            			rc.broadcast(TARGET_PRIORITY_CHANNEL, targetpriority);
+            			rc.broadcast(TARGET_TURN_NUMBER_CHANNEL, rc.getRoundNum());
+            			rc.broadcast(WAS_ROBOT_SPOTTED_CHANNEL, 1);
+            			rc.broadcast(IS_TARGET_CHANNEL, 1);
+            			broadcastTargetLocation(r.getLocation());
+            			break;
+            		}
+            	}
+            	
+            	for (RobotInfo r : nearbyRobots){
+            		rc.fireSingleShot( rc.getLocation().directionTo(r.getLocation()) );
+            		break;
+            	}
+            	
+            	
+            	
+            	//movement block
+            	averagedRunLocation = rc.getLocation();
+            	for (RobotInfo r : nearbyRobots){
+            		averagedRunLocation = averagedRunLocation.subtract(rc.getLocation().directionTo(r.getLocation()));
+            	}
+            	rc.setIndicatorDot(averagedRunLocation, 0, 0, 255);
+            	if (!averagedRunLocation.equals(rc.getLocation())){				//if there was any modification to run location
+            		tryMove(rc.getLocation().directionTo(averagedRunLocation));
+            	}
+            	if (!rc.hasMoved()){
+	            	if (rc.readBroadcast(IS_TARGET_CHANNEL) == 0){
+	            		if (!tryMove(randomDir)){
+	            			randomDir = randomDirection();
+	            		}
+	            	}
+	            	else{
+	            		tryMove(rc.getLocation().directionTo(readTargetMapLocation()));
+	            	}
+            	}
                
                 Clock.yield();
 
@@ -290,13 +462,73 @@ public strictfp class RobotPlayer {
     
     static void runScout() throws GameActionException {
 
+    	Direction randomDir = randomDirection();
+    	int targetpriority;
+    	MapLocation averagedRunLocation;
 
+    	
         // The code you want your robot to perform every round should be in this loop
         while (true) {
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
+            	
 
+            	
+            	
+            	RobotInfo[] nearbyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+            	
+            	//scouting bot
+            	for (RobotInfo r : nearbyRobots){
+            		if (r.getType() == RobotType.ARCHON){
+            			targetpriority = ARCHON_PRIORITY;
+            		}
+            		else if (r.getType() == RobotType.GARDENER){
+            			targetpriority = GARDENER_PRIORITY;
+            		}
+            		else if (r.getType() == RobotType.SOLDIER){
+            			targetpriority = SOLDIER_PRIORITY;
+            		}
+            		else{
+            			targetpriority = MISC_PRIORITY;
+            		}
+            		
+            		if (targetpriority < rc.readBroadcast(TARGET_PRIORITY_CHANNEL)){
+            			rc.broadcast(TARGET_PRIORITY_CHANNEL, targetpriority);
+            			rc.broadcast(TARGET_TURN_NUMBER_CHANNEL, rc.getRoundNum());
+            			rc.broadcast(WAS_ROBOT_SPOTTED_CHANNEL, 1);
+            			rc.broadcast(IS_TARGET_CHANNEL, 1);
+            			broadcastTargetLocation(r.getLocation());
+            			break;
+            		}
+            	}
+            	
+            	for (RobotInfo r : nearbyRobots){
+            		rc.fireSingleShot( rc.getLocation().directionTo(r.getLocation()) );
+            		break;
+            	}
+            	
+            	
+            	
+            	//movement block
+            	averagedRunLocation = rc.getLocation();
+            	for (RobotInfo r : nearbyRobots){
+            		averagedRunLocation = averagedRunLocation.subtract(rc.getLocation().directionTo(r.getLocation()));
+            	}
+            	rc.setIndicatorDot(averagedRunLocation, 0, 0, 255);
+            	if (!averagedRunLocation.equals(rc.getLocation())){				//if there was any modification to run location
+            		tryMove(rc.getLocation().directionTo(averagedRunLocation));
+            	}
+            	if (!rc.hasMoved()){
+	            	if (rc.readBroadcast(IS_TARGET_CHANNEL) == 0){
+	            		if (!tryMove(randomDir)){
+	            			randomDir = randomDirection();
+	            		}
+	            	}
+	            	else{
+	            		tryMove(rc.getLocation().directionTo(readTargetMapLocation()));
+	            	}
+            	}
                
                 Clock.yield();
 
@@ -429,4 +661,32 @@ public strictfp class RobotPlayer {
     		rc.move(movingDir);
     	}
     }
+    
+   
+    static void broadcastTargetLocation(MapLocation map) throws GameActionException{
+    	int xcoordInt = (int) map.x;
+    	int xcoordDeci = Math.round( (map.x%1) * (int)(Math.pow(10, 6)) );
+    	int ycoordInt = (int) map.y;
+    	int ycoordDeci = Math.round( (map.y%1) * (int)(Math.pow(10, 6)) );
+    	
+    	rc.broadcast(TARGET_X_INT_CHANNEL, xcoordInt);
+    	rc.broadcast(TARGET_X_DECI_CHANNEL, xcoordDeci);
+    	rc.broadcast(TARGET_Y_INT_CHANNEL, ycoordInt);
+    	rc.broadcast(TARGET_X_DECI_CHANNEL, ycoordDeci);
+    }
+    
+    static MapLocation readTargetMapLocation() throws GameActionException{
+    	int xcoordInt = rc.readBroadcast(TARGET_X_INT_CHANNEL);
+    	int xcoordDeci = rc.readBroadcast(TARGET_X_DECI_CHANNEL);
+    	int ycoordInt = rc.readBroadcast(TARGET_Y_INT_CHANNEL);
+    	int ycoordDeci = rc.readBroadcast(TARGET_Y_DECI_CHANNEL);
+    	
+    	float xcoord = (float)(xcoordInt + xcoordDeci/Math.pow(10,6));
+        float ycoord = (float)(ycoordInt + ycoordDeci/Math.pow(10,6));
+        return(new MapLocation(xcoord,ycoord));
+    	
+    	
+    }
+    
+    
 }
