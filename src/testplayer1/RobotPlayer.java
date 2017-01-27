@@ -1,5 +1,7 @@
 package testplayer1;
 
+import java.util.ArrayList;
+
 import battlecode.common.*;
 
 public strictfp class RobotPlayer {
@@ -211,7 +213,7 @@ public strictfp class RobotPlayer {
             	myLocation = rc.getLocation();
             	
             	
-            	if(rc.getRoundNum() < 300){
+            	if(rc.getRoundNum() < 400){
             		
             		if (  rc.canBuildRobot(RobotType.SCOUT, Direction.getEast())  ){
             			rc.buildRobot(RobotType.SCOUT, Direction.getEast());
@@ -344,7 +346,7 @@ public strictfp class RobotPlayer {
             		}
             		else{
             			
-            			if (myLocation.isWithinDistance(target, 1)){
+            			if (myLocation.isWithinDistance(target, 3)){
                     		broadcastingRobots = rc.senseBroadcastingRobotLocations();
 	                    	if (broadcastingRobots.length != 0){
                     			for (MapLocation m : broadcastingRobots){
@@ -352,6 +354,7 @@ public strictfp class RobotPlayer {
 	        							if(rc.senseRobotAtLocation(m).getTeam() != rc.getTeam()){
 	        								System.out.println("set target");
 	        								target = m;
+	        								rc.setIndicatorLine(myLocation, target, 255, 0, 0);
 	        								if ( tryMove(myLocation.directionTo(m)) ){
 	        									break;
 	        								}
@@ -359,6 +362,7 @@ public strictfp class RobotPlayer {
 	        						} catch (GameActionException e) {
 	        							target = m;
 	        							System.out.println("out of sensor range");
+	        							rc.setIndicatorLine(myLocation, target, 0, 255, 0);
 	        							if ( tryMove(myLocation.directionTo(m)) ){
 	        								wander();
 	        								break;
@@ -373,6 +377,7 @@ public strictfp class RobotPlayer {
                     	else{
                     		tryMove(myLocation.directionTo(target));
                     		System.out.println("moving to target");
+                    		rc.setIndicatorLine(myLocation, target, 0, 0, 255);
                     	}
                 		
             		}
@@ -447,13 +452,15 @@ public strictfp class RobotPlayer {
             	myLocation = rc.getLocation();
             	
             	
-            	if (myLocation.isWithinDistance(target, 1)){
+            	if (myLocation.isWithinDistance(target, 3)){
             		broadcastingRobots = rc.senseBroadcastingRobotLocations();
             		for (MapLocation m : broadcastingRobots){
 	            		try {
+
 							if(rc.senseRobotAtLocation(m).getTeam() != rc.getTeam()){
 								System.out.println("set target");
 								target = m;
+								rc.setIndicatorLine(myLocation, target, 255, 0, 0);
 								if ( tryMove(myLocation.directionTo(m)) ){
 									break;
 								}
@@ -461,6 +468,7 @@ public strictfp class RobotPlayer {
 						} catch (GameActionException e) {
 							target = m;
 							System.out.println("out of sensor range");
+							rc.setIndicatorLine(myLocation, target, 0, 255, 0);
 							if ( tryMove(myLocation.directionTo(m)) ){
 								break;
 							}
@@ -470,6 +478,7 @@ public strictfp class RobotPlayer {
             	else{
             		tryMove(myLocation.directionTo(target));
             		System.out.println("moving to target");
+            		rc.setIndicatorLine(myLocation, target, 0, 0, 255);
             	}
             	
             	

@@ -40,12 +40,16 @@ public strictfp class RobotPlayer {
 	}
 
     static void runArchon() throws GameActionException {
-
+    	
+    	System.out.println(RobotType.ARCHON.sensorRadius);
+    	
     	MapLocation toSpawnGardnerLoc;
-    	boolean offMapNorth;
-    	boolean offMapEast;
-    	boolean offMapWest;
-    	boolean offMapSouth;
+    	boolean offMapNorth = false;
+    	boolean offMapEast = false;
+    	boolean offMapWest = false;
+    	boolean offMapSouth = false;
+    	MapLocation toMoveLocation;
+    	int moveAwayCounter = 0;
     	
         // The code you want your robot to perform every round should be in this loop
         while (true) {
@@ -53,14 +57,80 @@ public strictfp class RobotPlayer {
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
             	
-            	toSpawnGardnerLoc = rc.getLocation().add(Direction.getWest());
+            	toSpawnGardnerLoc = rc.getLocation().add(Direction.getWest(), 3);
+            	rc.setIndicatorDot(toSpawnGardnerLoc, 255, 255, 255);
+            	toMoveLocation = rc.getLocation();
+            	
+            	if (rc.getRoundNum() < 200){
+            		if ( rc.canHireGardener(Direction.getWest()) ){
+            			rc.hireGardener(Direction.getWest());
+            			moveAwayCounter = 20;
+            		}
+            		if (moveAwayCounter > 0){
+                		tryMove(Direction.getEast(), 20, 6);
+                		moveAwayCounter--;
+                	}
+            	}
+            	
+            	
             	
             	if (rc.onTheMap(toSpawnGardnerLoc, 3)){
+            		if (rc.senseNearbyTrees(toSpawnGardnerLoc, 3, Team.NEUTRAL).length == 0 && 
+            										rc.senseNearbyTrees(toSpawnGardnerLoc, 3, rc.getTeam()).length == 0 &&
+            										rc.senseNearbyRobots(toSpawnGardnerLoc, 3, rc.getTeam()).length == 0){
+            			if ( rc.canHireGardener(Direction.getWest()) ){
+                			rc.hireGardener(Direction.getWest());
+                		}
+            		}
             		
+            		offMapNorth = false;
+            		offMapEast = false;
+            		offMapWest = false;
+            		offMapSouth = false;
             	}
             	else{
-
+            		if (!rc.onTheMap(toSpawnGardnerLoc.add(Direction.getNorth(), 3))){
+            			offMapNorth = true;
+            		}
+            		if (!rc.onTheMap(toSpawnGardnerLoc.add(Direction.getEast(), 3))){
+            			offMapEast = true;
+            		}
+            		if (!rc.onTheMap(toSpawnGardnerLoc.add(Direction.getSouth(), 3))){
+            			offMapSouth = true;
+            		}
+            		if (!rc.onTheMap(toSpawnGardnerLoc.add(Direction.getWest(), 3))){
+            			offMapWest = true;
+            		}
+            		
             	}
+            	
+            	if (offMapNorth || offMapEast || offMapWest || offMapSouth){
+
+            		if (offMapNorth){
+            			toMoveLocation = toMoveLocation.add(Direction.getSouth());
+            		}
+            		if (offMapEast){
+            			toMoveLocation = toMoveLocation.add(Direction.getWest());
+            		}
+            		if (offMapWest){
+            			toMoveLocation = toMoveLocation.add(Direction.getEast());
+            		}
+            		if (offMapSouth){
+            			toMoveLocation = toMoveLocation.add(Direction.getNorth());
+            		}
+            		if (rc.getLocation().directionTo(toMoveLocation) != null){
+            			tryMove(rc.getLocation().directionTo(toMoveLocation));
+            		}else{
+            			wander();
+            		}
+            	}
+            	else{
+            		wander();
+            	}
+
+            	
+            	
+            	
             	
             	if (rc.getTeamBullets() > 10000){
             		rc.donate(10000);
@@ -75,14 +145,47 @@ public strictfp class RobotPlayer {
     }
 
 	static void runGardener() throws GameActionException {
-
+		/*
+    	 * 0- 60 degree
+    	 * 1- 120 degree
+    	 * ...
+    	 * 4 - 300 degree
+    	 */
+    	int directionToPlant = 0;
 
         // The code you want your robot to perform every round should be in this loop
         while (true) {
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
+            	
+            	if(rc.getRoundNum() < 3000){
+            		
+            		if (  rc.canBuildRobot(RobotType.LUMBERJACK, Direction.getEast())  ){
+            			rc.buildRobot(RobotType.LUMBERJACK, Direction.getEast());
+            		}
+            		
+            	}
 
+            	//attempts to water nearby tree
+            	TreeInfo[] nearbyTrees = rc.senseNearbyTrees(2, rc.getTeam());
+            	for (TreeInfo t : nearbyTrees){
+           			if (  rc.canWater(t.getID()) && t.getHealth() < t.getMaxHealth()*0.9 ){
+           				rc.water(t.getID());
+
+           				break;
+            		}
+
+            	}
+            	
+            	if(rc.hasTreeBuildRequirements()){
+	            	if (rc.canPlantTree( new Direction( (float)Math.PI*(directionToPlant+1)/3) )){
+	            		rc.plantTree(new Direction( (float)Math.PI*(directionToPlant+1)/3));
+	            	}else{
+	            	}
+            	}
+            	directionToPlant = (directionToPlant+1)%5;
+            	
                
                 Clock.yield();
 
@@ -114,12 +217,66 @@ public strictfp class RobotPlayer {
 
     static void runLumberjack() throws GameActionException {
 
+    	TreeInfo[] toCut;
+    	RobotInfo[] nearbyRobots;
 
+    	Direction randomMovingDirection = randomDirection();
+    	
+    	boolean shouldMove = true;
+    	
         // The code you want your robot to perform every round should be in this loop
         while (true) {
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
+            	shouldMove = true;
+            	
+            	//attack code
+           		nearbyRobots = rc.senseNearbyRobots();
+           		
+           		for (RobotInfo r : nearbyRobots){
+           			if (r.getTeam() != rc.getTeam()){
+               			if (rc.getLocation().isWithinDistance(r.getLocation(), GameConstants.LUMBERJACK_STRIKE_RADIUS)){
+               				System.out.println("Within distance");
+               				if (rc.canStrike()){
+               					rc.strike();
+
+               					System.out.println("Attacked");
+               					break;
+               				}
+               			}
+           			}
+           		}
+            	
+            	//cut tree code
+            	toCut = rc.senseNearbyTrees();
+            	
+            	if (toCut.length > 0){
+	            	for (TreeInfo t : toCut){
+	            		if (t.getTeam() != rc.getTeam()){
+	            			if (rc.canShake(t.getID())){
+	            				rc.shake(t.getID());
+	            			}
+	            			if (rc.canChop(t.getID())){
+	                			rc.chop(t.getID());
+	                			shouldMove = false;
+	                			break;
+	                		}
+	            			else{
+	                			tryMove(rc.getLocation().directionTo(t.getLocation()));
+	                			break;
+	                		}
+	            		}
+	            	}
+            	}
+            	
+            	//random movement code (if not cutting a tree
+           		if (shouldMove && !rc.hasMoved()){
+           			if (!tryMove(randomMovingDirection)){
+               			randomMovingDirection = randomDirection();
+               		}
+           		}
+
 
                
                 Clock.yield();
@@ -202,7 +359,8 @@ public strictfp class RobotPlayer {
      * @throws GameActionException
      */
     static boolean tryMove(Direction dir, float degreeOffset, int checksPerSide) throws GameActionException {
-
+    	
+    	
         // First, try intended direction
         if (rc.canMove(dir)) {
             rc.move(dir);
@@ -263,5 +421,12 @@ public strictfp class RobotPlayer {
         float perpendicularDist = (float)Math.abs(distToRobot * Math.sin(theta)); // soh cah toa :)
 
         return (perpendicularDist <= rc.getType().bodyRadius);
+    }
+    
+    static void wander() throws GameActionException{
+    	Direction movingDir = randomDirection();
+    	if (rc.canMove(movingDir) && !rc.hasMoved()){
+    		rc.move(movingDir);
+    	}
     }
 }
