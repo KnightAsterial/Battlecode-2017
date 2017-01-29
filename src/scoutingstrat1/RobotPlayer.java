@@ -5,6 +5,9 @@ import battlecode.common.*;
 public strictfp class RobotPlayer {
     static RobotController rc;
     
+    //TODO: MAKE MORE SOLDIERS & LESS SCOUTS (scouts too weak)
+    
+    
     /*
      * BROADCAST ARRAY KEY
      * 
