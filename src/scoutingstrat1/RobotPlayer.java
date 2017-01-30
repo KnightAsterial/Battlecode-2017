@@ -1,9 +1,8 @@
 package scoutingstrat1;
-
 import battlecode.common.*;
 
 public strictfp class RobotPlayer {
-    static RobotController rc;
+static RobotController rc;
     
     //TODO: MAKE MORE SOLDIERS & LESS SCOUTS (scouts too weak)
     
@@ -247,6 +246,17 @@ public strictfp class RobotPlayer {
     	 * 4 - 300 degree
     	 */
     	int directionToPlant = 0;
+    	Direction directionToBuild = null;
+    	//can we detect borders, if so should we check to face a border
+    	//what other conditions should we consider for placement
+    	//potentially towards the location of our archon, so we can build a wall as a defensive strat
+    	for(int i = 0; i < 6; i++)
+    	{
+    		if(rc.canPlantTree( new Direction( (float)Math.PI*(i)/3) ) && rc.canBuildRobot(RobotType.LUMBERJACK, new Direction( (float)Math.PI*(i)/3) ))
+    		{
+    			directionToBuild = new Direction( (float)Math.PI*(i)/3);
+    		}
+    	}
     	
     	int buildcounter = 0;
 
@@ -258,25 +268,25 @@ public strictfp class RobotPlayer {
             	
             	if(rc.getRoundNum() < 300 && rc.getRoundNum() > 100){
             		
-            		if (  rc.canBuildRobot(RobotType.LUMBERJACK, Direction.getEast())  ){
-            			rc.buildRobot(RobotType.LUMBERJACK, Direction.getEast());
+            		if (  rc.canBuildRobot(RobotType.LUMBERJACK, directionToBuild)  ){
+            			rc.buildRobot(RobotType.LUMBERJACK, directionToBuild);
             		}
             		
             	}
             	else if (rc.getRoundNum() < 500){
-            		if (  rc.canBuildRobot(RobotType.SCOUT, Direction.getEast())  ){
-            			rc.buildRobot(RobotType.SCOUT, Direction.getEast());
+            		if (  rc.canBuildRobot(RobotType.SCOUT, directionToBuild)  ){
+            			rc.buildRobot(RobotType.SCOUT, directionToBuild);
             		}
             	}
             	else{
             		if (buildcounter % 3 == 0){
-            			if (  rc.canBuildRobot(RobotType.SCOUT, Direction.getEast())  ){
-                			rc.buildRobot(RobotType.SCOUT, Direction.getEast());
+            			if (  rc.canBuildRobot(RobotType.SCOUT, directionToBuild)  ){
+                			rc.buildRobot(RobotType.SCOUT, directionToBuild);
                 			buildcounter++;
                 		}
             		}else{
-            			if (  rc.canBuildRobot(RobotType.SOLDIER, Direction.getEast())  ){
-                			rc.buildRobot(RobotType.SOLDIER, Direction.getEast());
+            			if (  rc.canBuildRobot(RobotType.SOLDIER, directionToBuild)  ){
+                			rc.buildRobot(RobotType.SOLDIER, directionToBuild);
                 			buildcounter++;
                 		}
             		}
@@ -294,12 +304,12 @@ public strictfp class RobotPlayer {
             	}
             	
             	if(rc.hasTreeBuildRequirements()){
-	            	if (rc.canPlantTree( new Direction( (float)Math.PI*(directionToPlant+1)/3) )){
-	            		rc.plantTree(new Direction( (float)Math.PI*(directionToPlant+1)/3));
+	            	if (rc.canPlantTree( new Direction( (float)Math.PI*(directionToPlant)/3)) && new Direction((float)Math.PI*(directionToPlant)/3) != directionToBuild){
+	            		rc.plantTree(new Direction( (float)Math.PI*(directionToPlant)/3));
 	            	}else{
 	            	}
             	}
-            	directionToPlant = (directionToPlant+1)%5;
+            	directionToPlant = (directionToPlant)%5;
             	
                
                 Clock.yield();
