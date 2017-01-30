@@ -239,24 +239,13 @@ static RobotController rc;
     }
 
 	static void runGardener() throws GameActionException {
-		/*
-    	 * 0- 60 degree
-    	 * 1- 120 degree
-    	 * ...
-    	 * 4 - 300 degree
-    	 */
     	int directionToPlant = 0;
-    	Direction directionToBuild = null;
+    	Direction directionToBuild = Direction.getEast();								//default build direction
+    	boolean hasBuildDirection = false;
     	//can we detect borders, if so should we check to face a border
     	//what other conditions should we consider for placement
     	//potentially towards the location of our archon, so we can build a wall as a defensive strat
-    	for(int i = 0; i < 6; i++)
-    	{
-    		if(rc.canPlantTree( new Direction( (float)Math.PI*(i)/3) ) && rc.canBuildRobot(RobotType.LUMBERJACK, new Direction( (float)Math.PI*(i)/3) ))
-    		{
-    			directionToBuild = new Direction( (float)Math.PI*(i)/3);
-    		}
-    	}
+    	
     	
     	int buildcounter = 0;
 
@@ -266,6 +255,20 @@ static RobotController rc;
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
             	
+            	if (hasBuildDirection == false){
+            		for(int i = 0; i < 6; i++)
+                	{
+                		if(rc.canPlantTree( new Direction( (float)Math.PI*(i)/3) ) && rc.canBuildRobot(RobotType.LUMBERJACK, new Direction( (float)Math.PI*(i)/3) ))
+                		{
+                			directionToBuild = new Direction( (float)Math.PI*(i)/3);
+                			hasBuildDirection = true;
+                			break;
+                		}
+                	}
+            	}
+            	
+            	
+            	
             	if(rc.getRoundNum() < 300 && rc.getRoundNum() > 100){
             		
             		if (  rc.canBuildRobot(RobotType.LUMBERJACK, directionToBuild)  ){
@@ -274,17 +277,24 @@ static RobotController rc;
             		
             	}
             	else if (rc.getRoundNum() < 500){
-            		if (  rc.canBuildRobot(RobotType.SCOUT, directionToBuild)  ){
-            			rc.buildRobot(RobotType.SCOUT, directionToBuild);
+            		if (  rc.canBuildRobot(RobotType.SOLDIER, directionToBuild)  ){
+            			rc.buildRobot(RobotType.SOLDIER, directionToBuild);
             		}
             	}
             	else{
-            		if (buildcounter % 3 == 0){
+            		if (buildcounter % 8 == 0){
             			if (  rc.canBuildRobot(RobotType.SCOUT, directionToBuild)  ){
                 			rc.buildRobot(RobotType.SCOUT, directionToBuild);
                 			buildcounter++;
                 		}
-            		}else{
+            		}
+            		else if (buildcounter % 8 == 1){
+            			if (  rc.canBuildRobot(RobotType.TANK, directionToBuild)  ){
+                			rc.buildRobot(RobotType.TANK, directionToBuild);
+                			buildcounter++;
+                		}
+            		}
+            		else{
             			if (  rc.canBuildRobot(RobotType.SOLDIER, directionToBuild)  ){
                 			rc.buildRobot(RobotType.SOLDIER, directionToBuild);
                 			buildcounter++;
@@ -304,12 +314,12 @@ static RobotController rc;
             	}
             	
             	if(rc.hasTreeBuildRequirements()){
-	            	if (rc.canPlantTree( new Direction( (float)Math.PI*(directionToPlant)/3)) && new Direction((float)Math.PI*(directionToPlant)/3) != directionToBuild){
+	            	if (rc.canPlantTree( new Direction( (float)Math.PI*(directionToPlant)/3)) && !(new Direction((float)Math.PI*(directionToPlant)/3).equals(directionToBuild)) ){
 	            		rc.plantTree(new Direction( (float)Math.PI*(directionToPlant)/3));
 	            	}else{
 	            	}
             	}
-            	directionToPlant = (directionToPlant)%5;
+            	directionToPlant = (directionToPlant+1)%6;
             	
                
                 Clock.yield();
@@ -364,9 +374,26 @@ static RobotController rc;
             		}
             	}
             	
+            	RobotInfo[] nearbyFriendlies = rc.senseNearbyRobots(-1, rc.getTeam());
+            	MapLocation enemyLocation;
+            	MapLocation friendlyLocation;
+            	boolean toShoot = true;
             	for (RobotInfo r : nearbyRobots){
-            		rc.fireSingleShot( rc.getLocation().directionTo(r.getLocation()) );
-            		break;
+            		toShoot = true;
+            		enemyLocation = r.getLocation();
+            		
+            		for (RobotInfo f : nearbyFriendlies){
+            			friendlyLocation = f.getLocation();
+            			if (rc.getLocation().directionTo(enemyLocation).degreesBetween(rc.getLocation().directionTo(friendlyLocation)) < 1 ){
+            				toShoot = false;
+            			}
+            		}
+            		
+            		if (toShoot){
+            			rc.fireSingleShot( rc.getLocation().directionTo(enemyLocation) );
+                		break;
+            		}
+            		
             	}
             	
             	
@@ -516,10 +543,12 @@ static RobotController rc;
             		}
             	}
             	
+            	/*
             	for (RobotInfo r : nearbyRobots){
             		rc.fireSingleShot( rc.getLocation().directionTo(r.getLocation()) );
             		break;
             	}
+            	*/
             	
             	
             	
@@ -554,13 +583,89 @@ static RobotController rc;
     
     static void runTank() throws GameActionException {
 
+    	Direction randomDir = randomDirection();
+    	int targetpriority;
+    	MapLocation averagedRunLocation;
 
+    	
         // The code you want your robot to perform every round should be in this loop
         while (true) {
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
+            	
 
+            	
+            	
+            	RobotInfo[] nearbyRobots = rc.senseNearbyRobots(-1, rc.getTeam().opponent());
+            	
+            	//scouting bot
+            	for (RobotInfo r : nearbyRobots){
+            		if (r.getType() == RobotType.ARCHON){
+            			targetpriority = ARCHON_PRIORITY;
+            		}
+            		else if (r.getType() == RobotType.GARDENER){
+            			targetpriority = GARDENER_PRIORITY;
+            		}
+            		else if (r.getType() == RobotType.SOLDIER){
+            			targetpriority = SOLDIER_PRIORITY;
+            		}
+            		else{
+            			targetpriority = MISC_PRIORITY;
+            		}
+            		
+            		if (targetpriority < rc.readBroadcast(TARGET_PRIORITY_CHANNEL)){
+            			rc.broadcast(TARGET_PRIORITY_CHANNEL, targetpriority);
+            			rc.broadcast(TARGET_TURN_NUMBER_CHANNEL, rc.getRoundNum());
+            			rc.broadcast(WAS_ROBOT_SPOTTED_CHANNEL, 1);
+            			rc.broadcast(IS_TARGET_CHANNEL, 1);
+            			broadcastTargetLocation(r.getLocation());
+            			break;
+            		}
+            	}
+            	
+            	RobotInfo[] nearbyFriendlies = rc.senseNearbyRobots(-1, rc.getTeam());
+            	MapLocation enemyLocation;
+            	MapLocation friendlyLocation;
+            	boolean toShoot = true;
+            	for (RobotInfo r : nearbyRobots){
+            		enemyLocation = r.getLocation();
+            		
+            		for (RobotInfo f : nearbyFriendlies){
+            			friendlyLocation = f.getLocation();
+            			if (rc.getLocation().directionTo(enemyLocation).degreesBetween(rc.getLocation().directionTo(friendlyLocation)) < 1 ){
+            				toShoot = false;
+            			}
+            		}
+            		
+            		if (toShoot){
+            			rc.fireSingleShot( rc.getLocation().directionTo(enemyLocation) );
+                		break;
+            		}
+            		
+            	}
+            	
+            	
+            	
+            	//movement block
+            	averagedRunLocation = rc.getLocation();
+            	for (RobotInfo r : nearbyRobots){
+            		averagedRunLocation = averagedRunLocation.subtract(rc.getLocation().directionTo(r.getLocation()));
+            	}
+            	rc.setIndicatorDot(averagedRunLocation, 0, 0, 255);
+            	if (!averagedRunLocation.equals(rc.getLocation())){				//if there was any modification to run location
+            		tryMove(rc.getLocation().directionTo(averagedRunLocation));
+            	}
+            	if (!rc.hasMoved()){
+	            	if (rc.readBroadcast(IS_TARGET_CHANNEL) == 0){
+	            		if (!tryMove(randomDir)){
+	            			randomDir = randomDirection();
+	            		}
+	            	}
+	            	else{
+	            		tryMove(rc.getLocation().directionTo(readTargetMapLocation()));
+	            	}
+            	}
                
                 Clock.yield();
 
