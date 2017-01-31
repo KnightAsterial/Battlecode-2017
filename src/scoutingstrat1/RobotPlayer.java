@@ -2,6 +2,13 @@ package scoutingstrat1;
 import battlecode.common.*;
 
 
+/*
+ * Work by Ryan Zhao, Bryce Miles, Alex Wee, and Cole Stevens
+ * Battlecode 2017
+ * 
+ * Team xX_EdgeMasters_Xx
+ */
+
 public strictfp class RobotPlayer {
 static RobotController rc;
     
