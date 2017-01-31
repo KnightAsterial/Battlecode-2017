@@ -289,7 +289,7 @@ static RobotController rc;
             		System.out.println(buildcounter);
             		System.out.println(rc.canBuildRobot(RobotType.TANK, directionToBuild));
             		if (buildcounter % 8 == 0){
-            			if (  rc.canBuildRobot(RobotType.SCOUT, directionToBuild)  ){
+            			if (  rc.canBuildRobot(RobotType.SCOUT, directionToBuild) && rc.getTeamBullets() > 130 ){
                 			rc.buildRobot(RobotType.SCOUT, directionToBuild);
                 			buildcounter++;
                 		}
@@ -336,7 +336,9 @@ static RobotController rc;
             	}
             	directionToPlant = (directionToPlant+1)%6;
             	
-               
+            	if (rc.getTeamBullets() > 500){
+            		rc.donate(500);
+            	}
                 Clock.yield();
 
             } catch (Exception e) {
@@ -431,6 +433,9 @@ static RobotController rc;
 	            	}
             	}
                
+            	if (rc.getTeamBullets() > 500){
+            		rc.donate(500);
+            	}
                 Clock.yield();
 
             } catch (Exception e) {
@@ -509,7 +514,9 @@ static RobotController rc;
            		}
 
 
-               
+           		if (rc.getTeamBullets() > 500){
+            		rc.donate(500);
+            	}
                 Clock.yield();
 
             } catch (Exception e) {
@@ -610,6 +617,10 @@ static RobotController rc;
 	            	}
             	}
                
+            	
+            	if (rc.getTeamBullets() > 500){
+            		rc.donate(500);
+            	}
                 Clock.yield();
 
             } catch (Exception e) {
@@ -704,6 +715,9 @@ static RobotController rc;
 	            	}
             	}
                
+            	if (rc.getTeamBullets() > 500){
+            		rc.donate(500);
+            	}
                 Clock.yield();
 
             } catch (Exception e) {
