@@ -1,6 +1,7 @@
 package scoutingstrat1;
 import battlecode.common.*;
 
+
 public strictfp class RobotPlayer {
 static RobotController rc;
     
@@ -52,6 +53,8 @@ static RobotController rc;
     static int MISC_PRIORITY = 20;
     static int NO_ROBOT_TARGETED_PRIORITY = 1048575;
     
+    //has circle sizes to make sure gardeners do not plant against walls only
+    static float GARDENER_CIRCLE_SIZE = 1.0f + 2.0f + 2.0f;
     
 
     /**
@@ -246,7 +249,7 @@ static RobotController rc;
     	//what other conditions should we consider for placement
     	//potentially towards the location of our archon, so we can build a wall as a defensive strat
     	
-    	
+    	Direction randomDir = Direction.getEast();
     	int buildcounter = 0;
 
         // The code you want your robot to perform every round should be in this loop
@@ -254,20 +257,26 @@ static RobotController rc;
 
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
-            	
-            	if (hasBuildDirection == false){
-            		for(int i = 0; i < 6; i++)
-                	{
-                		if(rc.canPlantTree( new Direction( (float)Math.PI*(i)/3) ) && rc.canBuildRobot(RobotType.LUMBERJACK, new Direction( (float)Math.PI*(i)/3) ))
-                		{
-                			directionToBuild = new Direction( (float)Math.PI*(i)/3);
-                			hasBuildDirection = true;
-                			break;
-                		}
+            	if (rc.onTheMap(rc.getLocation(), GARDENER_CIRCLE_SIZE))
+            	{
+            		if (hasBuildDirection == false){
+                		for(int i = 0; i < 6; i++)
+                    	{
+                    		if(rc.canPlantTree( new Direction( (float)Math.PI*(i)/3) ) && rc.canBuildRobot(RobotType.LUMBERJACK, new Direction( (float)Math.PI*(i)/3) ))
+                    		{
+                    			directionToBuild = new Direction( (float)Math.PI*(i)/3);
+                    			hasBuildDirection = true;
+                    			break;
+                    		}
+                    	}
                 	}
             	}
-            	
-            	
+            	else 
+            	{
+            		if (!tryMove(randomDir)){
+                        randomDir = randomDirection();
+                    }
+            	}
             	
             	if(rc.getRoundNum() < 300 && rc.getRoundNum() > 100){
             		
@@ -829,6 +838,4 @@ static RobotController rc;
     	
     	return (oppositeSide <= targetRobot.getType().bodyRadius);
     }
-    
-    
 }
