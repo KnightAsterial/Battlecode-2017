@@ -223,8 +223,8 @@ static RobotController rc;
 
    
             	
-            	if (rc.getTeamBullets() > 10000){
-            		rc.donate(10000);
+            	if (rc.getTeamBullets() > 500){
+            		rc.donate(500);
             	}
             
             	
@@ -282,23 +282,35 @@ static RobotController rc;
             		}
             	}
             	else{
+            		System.out.println(rc.getRoundNum() % 8);
+            		System.out.println(buildcounter);
+            		System.out.println(rc.canBuildRobot(RobotType.TANK, directionToBuild));
             		if (buildcounter % 8 == 0){
             			if (  rc.canBuildRobot(RobotType.SCOUT, directionToBuild)  ){
                 			rc.buildRobot(RobotType.SCOUT, directionToBuild);
                 			buildcounter++;
                 		}
+            			else{
+            				buildcounter++;
+            			}
             		}
             		else if (buildcounter % 8 == 1){
             			if (  rc.canBuildRobot(RobotType.TANK, directionToBuild)  ){
                 			rc.buildRobot(RobotType.TANK, directionToBuild);
                 			buildcounter++;
                 		}
+            			else{
+            				buildcounter++;
+            			}
             		}
             		else{
             			if (  rc.canBuildRobot(RobotType.SOLDIER, directionToBuild)  ){
                 			rc.buildRobot(RobotType.SOLDIER, directionToBuild);
                 			buildcounter++;
                 		}
+            			else{
+            				buildcounter++;
+            			}
             		}
             	}
 
@@ -376,15 +388,12 @@ static RobotController rc;
             	
             	RobotInfo[] nearbyFriendlies = rc.senseNearbyRobots(-1, rc.getTeam());
             	MapLocation enemyLocation;
-            	MapLocation friendlyLocation;
             	boolean toShoot = true;
             	for (RobotInfo r : nearbyRobots){
-            		toShoot = true;
             		enemyLocation = r.getLocation();
             		
-            		for (RobotInfo f : nearbyFriendlies){
-            			friendlyLocation = f.getLocation();
-            			if (rc.getLocation().directionTo(enemyLocation).degreesBetween(rc.getLocation().directionTo(friendlyLocation)) < 1 ){
+            		for (RobotInfo f : nearbyFriendlies){            			
+            			if ( willShoot(rc.getLocation().directionTo(enemyLocation), f) ){
             				toShoot = false;
             			}
             		}
@@ -448,7 +457,7 @@ static RobotController rc;
            		
            		for (RobotInfo r : nearbyRobots){
            			if (r.getTeam() != rc.getTeam()){
-               			if (rc.getLocation().isWithinDistance(r.getLocation(), GameConstants.LUMBERJACK_STRIKE_RADIUS)){
+               			if (rc.getLocation().isWithinDistance(r.getLocation(), GameConstants.LUMBERJACK_STRIKE_RADIUS+1)){
                				System.out.println("Within distance");
                				if (rc.canStrike()){
                					rc.strike();
@@ -474,19 +483,25 @@ static RobotController rc;
 	                			shouldMove = false;
 	                			break;
 	                		}
-	            			else{
-	                			tryMove(rc.getLocation().directionTo(t.getLocation()));
-	                			break;
-	                		}
+	            			//else{
+	                			//tryMove(rc.getLocation().directionTo(t.getLocation()));
+	                			//break;
+	                		//}
 	            		}
 	            	}
             	}
             	
             	//random movement code (if not cutting a tree
            		if (shouldMove && !rc.hasMoved()){
-           			if (!tryMove(randomMovingDirection)){
-               			randomMovingDirection = randomDirection();
-               		}
+    	           	if (rc.readBroadcast(IS_TARGET_CHANNEL) == 0){
+    	           		if (!tryMove(randomMovingDirection)){
+    	           			randomMovingDirection = randomDirection();
+    	           		}
+    	           	}
+    	           	else{
+    	           		tryMove(rc.getLocation().directionTo(readTargetMapLocation()));
+    	           	}
+          
            		}
 
 
@@ -626,14 +641,12 @@ static RobotController rc;
             	
             	RobotInfo[] nearbyFriendlies = rc.senseNearbyRobots(-1, rc.getTeam());
             	MapLocation enemyLocation;
-            	MapLocation friendlyLocation;
             	boolean toShoot = true;
             	for (RobotInfo r : nearbyRobots){
             		enemyLocation = r.getLocation();
             		
-            		for (RobotInfo f : nearbyFriendlies){
-            			friendlyLocation = f.getLocation();
-            			if (rc.getLocation().directionTo(enemyLocation).degreesBetween(rc.getLocation().directionTo(friendlyLocation)) < 1 ){
+            		for (RobotInfo f : nearbyFriendlies){            			
+            			if ( willShoot(rc.getLocation().directionTo(enemyLocation), f) ){
             				toShoot = false;
             			}
             		}
@@ -804,6 +817,17 @@ static RobotController rc;
         return(new MapLocation(xcoord,ycoord));
     	
     	
+    }
+    
+    static boolean willShoot(Direction dir, RobotInfo targetRobot){
+    	MapLocation myLocation = rc.getLocation();
+    	MapLocation targetLocation = targetRobot.getLocation();
+    	float distanceToTarget = myLocation.distanceTo(targetLocation);
+    	float theta = dir.radiansBetween(myLocation.directionTo(targetLocation));
+    	
+    	float oppositeSide = (float)Math.abs(distanceToTarget * Math.sin(theta));
+    	
+    	return (oppositeSide <= targetRobot.getType().bodyRadius);
     }
     
     
