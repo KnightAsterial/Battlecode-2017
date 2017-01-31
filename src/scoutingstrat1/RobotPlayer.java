@@ -584,6 +584,28 @@ static RobotController rc;
             		break;
             	}
             	*/
+            	RobotInfo[] nearbyFriendlies = rc.senseNearbyRobots(-1, rc.getTeam());
+            	MapLocation enemyLocation;
+            	boolean toShoot = true;
+            	for (RobotInfo r : nearbyRobots){
+            		toShoot = true;
+            		enemyLocation = r.getLocation();
+            		
+            		for (RobotInfo f : nearbyFriendlies){            			
+            			if ( willShoot(rc.getLocation().directionTo(enemyLocation), f) ){
+            				toShoot = false;
+            			}
+            		}
+            		
+            		if (toShoot){
+            			rc.fireSingleShot( rc.getLocation().directionTo(enemyLocation) );
+                		break;
+            		}
+            		
+            	}
+            	
+            	
+            	
             	
             	if (!rc.hasMoved()){
             		TreeInfo[] nearbyTrees = rc.senseNearbyTrees(-1, Team.NEUTRAL);
