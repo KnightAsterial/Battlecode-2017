@@ -4,8 +4,6 @@ import battlecode.common.*;
 public strictfp class RobotPlayer {
 static RobotController rc;
     
-    //TODO: MAKE MORE SOLDIERS & LESS SCOUTS (scouts too weak)
-    
     
     /*
      * BROADCAST ARRAY KEY
@@ -226,7 +224,7 @@ static RobotController rc;
             	if (rc.getTeamBullets() > 500){
             		rc.donate(500);
             	}
-            
+            	
             	
             	rc.broadcast(WAS_ROBOT_SPOTTED_CHANNEL, 0);			//resets counter for "was robot spotted this turn"
                 Clock.yield();
@@ -275,6 +273,11 @@ static RobotController rc;
             			rc.buildRobot(RobotType.LUMBERJACK, directionToBuild);
             		}
             		
+            	}
+            	else if (rc.getRoundNum() < 50){
+            		if (  rc.canBuildRobot(RobotType.SCOUT, directionToBuild)  ){
+            			rc.buildRobot(RobotType.SCOUT, directionToBuild);
+            		}
             	}
             	else if (rc.getRoundNum() < 500){
             		if (  rc.canBuildRobot(RobotType.SOLDIER, directionToBuild)  ){
@@ -390,6 +393,7 @@ static RobotController rc;
             	MapLocation enemyLocation;
             	boolean toShoot = true;
             	for (RobotInfo r : nearbyRobots){
+            		toShoot = true;
             		enemyLocation = r.getLocation();
             		
             		for (RobotInfo f : nearbyFriendlies){            			
@@ -457,7 +461,7 @@ static RobotController rc;
            		
            		for (RobotInfo r : nearbyRobots){
            			if (r.getTeam() != rc.getTeam()){
-               			if (rc.getLocation().isWithinDistance(r.getLocation(), GameConstants.LUMBERJACK_STRIKE_RADIUS+1)){
+               			if (rc.getLocation().isWithinDistance(r.getLocation(), GameConstants.LUMBERJACK_STRIKE_RADIUS+2)){
                				System.out.println("Within distance");
                				if (rc.canStrike()){
                					rc.strike();
@@ -565,17 +569,36 @@ static RobotController rc;
             	}
             	*/
             	
+            	if (!rc.hasMoved()){
+            		TreeInfo[] nearbyTrees = rc.senseNearbyTrees(-1, Team.NEUTRAL);
+            		for (TreeInfo t : nearbyTrees){
+            			if (t.containedBullets > 0){
+            				if (rc.canShake(t.getID())){
+            					rc.shake(t.getID());
+            					break;
+            				}
+            				else{
+            					tryMove(rc.getLocation().directionTo(t.getLocation()));
+            					break;
+            				}
+            			}
+            		}
+            	}
             	
             	
-            	//movement block
-            	averagedRunLocation = rc.getLocation();
-            	for (RobotInfo r : nearbyRobots){
-            		averagedRunLocation = averagedRunLocation.subtract(rc.getLocation().directionTo(r.getLocation()));
+            	if (!rc.hasMoved()){
+                	//movement block
+                	averagedRunLocation = rc.getLocation();
+                	for (RobotInfo r : nearbyRobots){
+                		averagedRunLocation = averagedRunLocation.subtract(rc.getLocation().directionTo(r.getLocation()));
+                	}
+                	rc.setIndicatorDot(averagedRunLocation, 0, 0, 255);
+                	if (!averagedRunLocation.equals(rc.getLocation())){				//if there was any modification to run location
+                		tryMove(rc.getLocation().directionTo(averagedRunLocation));
+                	}
             	}
-            	rc.setIndicatorDot(averagedRunLocation, 0, 0, 255);
-            	if (!averagedRunLocation.equals(rc.getLocation())){				//if there was any modification to run location
-            		tryMove(rc.getLocation().directionTo(averagedRunLocation));
-            	}
+            	
+
             	if (!rc.hasMoved()){
 	            	if (rc.readBroadcast(IS_TARGET_CHANNEL) == 0){
 	            		if (!tryMove(randomDir)){
@@ -643,6 +666,7 @@ static RobotController rc;
             	MapLocation enemyLocation;
             	boolean toShoot = true;
             	for (RobotInfo r : nearbyRobots){
+            		toShoot = true;
             		enemyLocation = r.getLocation();
             		
             		for (RobotInfo f : nearbyFriendlies){            			
